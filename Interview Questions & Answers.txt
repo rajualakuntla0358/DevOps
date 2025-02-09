@@ -1,0 +1,2219 @@
+What are Kubernetes Services?
+A Kubernetes service is a logical abstraction for a deployed group of pods in a cluster (which all perform the same function). A service enables a group of pods, which provide specific functions (web services, image processing, etc.) to be assigned a name and unique IP address (clusterIP). As long as the service is runing that IP address, it will not change. Services also define policies for their access.
+
+What is the difference between a service and a deployment in Kubernetes?
+A deployment is a method of launching a pod with containerized applications and ensuring that the necessary number of replicas is always running on the cluster.
+A service is responsible for exposing an interface to those pods, which enables network access from either within the cluster or between external processes and the service.
+
+What are the components of a Kubernetes service?
+- A label selector that locates pods
+- The cluster IP address and assigned port number
+- Port definitions
+- Optional mapping of incoming ports to a target port
+
+What are the types of Kubernetes services?
+- ClusterIP - Exposes a service which is only accessible from within the cluster
+- NodePort - Exposes a service via a static port on each node's IP
+- LoadBalancer - Exposes the service via the cloud provider's load balancer
+- ExternalName - Maps a service to a predefined external Name field by returning a value for the CNAME record
+
+What is the Kubernetes ClusterIP Service?
+ClusterIP is the default type of service, which is used to expose a service on an IP address internal to the cluster. Access is only permitted from within the cluster.
+
+What is a Kubernetes Headless service?
+Service that do not need load balancing and only expose a single IP can create a 'headless' service by specifying "none" as the clusterIP
+
+
+What is a Kubernetes NodePort service?
+NodePorts are open ports on every cluster node. Kubernetes will route traffic that comes into a NodePort to the service, even if the service is not running on that node.
+
+What is a Kubernetes ExternalName service?
+ExternalName services are similar to other kubernetes services; however, instead of being accessed via a cluster IP address, it returns a CNAME record with a value that is defined in the externalName: parameter when creating the service.
+
+What is a Kubernetes Load Balancer service?
+For clusters running onpublic cloud providers like AWS or Azure, creating a LoadBalancer service provides an equivalent to a clusterIP service, extending it to an external load balancer that is specific to the cloud provider.
+
+How do Kubernetes service work?
+Services simply point to pods using labels. Since services are not node-specific, a service can point to a pod regardless of where it runs in the cluster at any given moment in time. By exposing a service IP address as well as a DNS service name, an application can be reached by either method as long as the service exists.
+
+How do you define a Kubernetes service?
+Services are defined in YAML, as are all Kubernetes objects. Suppose you deployed pods running a back-end service to process data coming from a web front end. To expose a service named 'service-backend' on the deployment 'deployment-backend'
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-backend
+spec:
+  ports:
+  - port: 4000
+  protocol: TCP
+  targetPort:333
+  selector:
+    run: deployment-backend
+    type: ClusterIP
+	
+	
+The service 'service-backend' will be created, and any pod in the cluster can access it on their port 333 via http://service-backend:4000, or at athe cluster's IP address using port 4000
+Kubernetes services can also be created using the 'kubectl expose' command, which does not require a YAML file. The same service can be created using the command:
+kubectl expose deployment deployment-backend --port=333 --target-port=4000 --name=service-backend
+
+How do you access a Kubernetes service?
+- DNS - The DNS method is the recommended method of discovering services
+- ENV variable - This method relies on the kubelet adding environment variables for each active service for every node a pod is running on
+
+How to restart Pod safely?
+3 Methods
+Method 1 - Rolling Restart
+kubectl rollout restart deployment deployment_name
+This command performs a step-by-step shutdown and restarts each container in your deployment. Your app will still be available as most of the containers will still be running
+Method 2 - Using Environment Variables
+kubectl set env deployment deployment_name DEPLOY_DATE="$(date)"
+The command 'set env' sets up a change in environment variables, 'deployment deployment_name' selects your deployment, and 'DEPLOY_DATE="$(date)"' changes the deployment date and forces the pod restart
+Method 3 -Scaling the Number of Replicas
+kubectl scale deployment deployment_name --replicas=0
+kubectl scale deployment deployment_name --replicas=1
+When you set the number of replicas to zero, kubernetes destroys the replicas it no longer needs.
+Once you set a number higher than zero, Kubernetes creates new replicas. The new replicas will have different names than the old ones. You can use the command 'kubectl get pods' to check the status of the pods and see what the new names are.
+
+When we do pod restart?
+The common reason of restarting container which happens the resource usage is not configured or application itself behaves unpredictable. If we have allocated 1GB of memory for a container and it tries to allocate more than this limit, the pod will be killed with OOM (Out Of Memory)
+
+
+
+How to manage High Availability of pods and containers
+- Make the master node services reliable - The cluster master node runs a number of critical processes that implement the kubernetes API. Each of these must be automatically restarted if it fails. The kubelet service that runs on each worker node, and monitors the pods, is a convenient option to monitor these services on the master node.
+- Set up a redundant storage layer for etcd - In a Kubernetes cluster, The etcd service stores all the cluster data. If the etcd data is stored on a redundant and reliable storage layer, then the cluster state can be reconstucted during recovery from failure. The etcd services will replicate the storage to all master instances in the cluster.
+- Use a highly available load balancer for the Kubernetes API services - The apiserviver is also replicated in the cluster. Since the apiserver is the entry point to the cluster, the replicated apiserver is hosted behind a load balancer such as AWS ELB, If an instance of the apiserver goes down, the load balancer will automatically route the traffic to other running instances.
+- Setup multiple master nodes and configure a master election strategy - When multiple instances of the master node are running, the controller manager and scheduler on only one of them should actually be performing actions on the cluster.
+
+How to rollback deployment in kubernetes?
+History of your deployment
+kubectl rollout history deployment deployment_name -n namespace_name
+OR
+kubectl rollout history deployment deployment_name
+rollback to a specific version
+kubectl rollout undo deployment deployment_name -n namespace_name
+OR
+kubectl rollout undo deployment deployment_name --to-revision=1
+
+Kubernetes internal administration?
+Kubernetes keeps track of your container applications that are deployed into the cloud. It restarts orphanes containers, shutdown containers when they're not being used, and automatically provisions resources like memory, storage, and CPU when necessary.
+
+What does a Kubernetes administrator do?
+Kubernetes is an open-source platform for managing IT systems and services, and as a Kubernetes administrator, your responsiblities involve designing and implementing solutions to leverage a Kubernetes cluster, configuring hardware, peripherals, and services, managing settings and storage.
+
+
+
+What is inside Kubernetes?
+A Kubernetes cluster consists of the components that represent the control plane and a set of machines called nodes. When you deploy Kubernetes, you get a cluster. A Kubernetes cluster consists of a set of worker machines, called nodes, that run containerized applications.
+
+How kubernetes master and worker communicate?
+Kube-APIServer - which acts as the frontend to the cluster. All external communication to the cluster is via the "API-Server".
+
+How to create docker images?
+Build an image from a Dockerfile
+Docker file for nginx
+---
+FROM nginx
+RUN rm /etc/nginx/conf.d/default.conf
+COPY content /usr/share/nginx/html
+COPY conf /etc/nginx
+VOLUME /usr/share/nginx/html
+VOLUME /etc/nginx
+build nginx image from docker file
+docker build -t mynginx-image . OR docker build -t mynginx Dockerfile
+### --tag , -t = Name and optionally a tag in the 'name:tag' format
+run the container from image
+docker run -d -p 80:80 --name mynginx-container mynginx-image (-p (small p) you need to mention port number)
+docker run -d -P --name mynginx-container mynginx-image (-P (capital p) it will allocate port number)
+### -d = detach, -p,-P = publish
+
+Where artifacts are stored in Jenkins?
+Jenkins archives artifacts generated by the build. These artifacts are stored in the "JENKINS_HOME" directory with all other elements such as job configuration files. It keeps the artifacts for One Month, keep artifact even if build failure or was aborted.
+Jenkins stores the configuration for each job within an eponymous directory in jobs/. The job configuration file is config.xml, the builds are stored in builds/, and the working directory is workspace/
+
+
+
+What is docker network?
+Docker networking allows you to attach a container to as many networks as you like. You can also attach an already running container.
+Three Docker Network Types
+Bridge network - used within a single host
+overlay networks - for multi-host communication
+macvlan networks - used to connect Docker containers directly to host network interfaces
+
+How to do git merge?
+The git merge command lets you take the independent lines of development created by git branch and integrate them into a single branch
+The current branch will be updated to reflect the merge, but the target branch will be completely unaffected.
+git status
+git checkout branch1
+git merge branch2
+branch2 files will added in branch1
+
+Difference between rebase and merge?
+Git rebase and merge both integrate changes from one branch into another.
+Git rebase moves a feature branch into a master. Git merge adds a new commit, preserving the history.
+
+How you will create Branch?
+The git branch command can be used to create a new branch. When you want to start a new feature, you create a new branch off main using "git branch new_branch". Once create you can then use git checkout new_branch to switch to that branch.
+
+What is the branching strategy in git?
+A branching strategy refers to the strategy a software development team employs when writing, merging, and shipping code in the context of a version control system like Git. Software developers working as a team on the same codebase must share their changes with each other.
+
+
+
+Where to store application code and how to restrict access in git?
+Storing code in GitHub
+- Navigate to the GitHub website. http://github.com
+- Sign up to GitHub using your email id and then login with those credentials.
+- Create a new repository by either clicking on Start a project or click on the + button or clicking on New Reporisoty link.
+- Give the name of your repository -> select private or public -> click create a repository
+- The repository is created now. Copy the path of the repository by clicking on copy button
+To protect a branch
+- On GitHub, navigate to the main page of repository
+- Under your repository name, click settings
+- In the left menu, click Branches
+- Next to Branch protection rules, click Add rule
+- Under Branch name pattern, type the branch name or pattern you want to protected
+- Configure specific branch rule settings if needed
+- Click Create or Save changes
+
+How to rollback in Git?
+git log --oneline
+# Take the CommitID which you want roll back
+git revert CommitID
+
+Jenkins Pipeline Explain?
+Jenkins Pipeline is a collection of jobs which are interlinked with one another in a sequence, that brings the software from version control into the hands of the end users by using automation tools.
+Pipelines are
+Declarative Pipeline
+Jenkinsfile (Declarative Pipeline)
+pipeline{
+  agent any
+  stages{
+    stage('Build'){
+      steps{
+
+      }
+    }
+    stage('Test'){
+      steps{
+
+      }
+    }
+    stage('Deploy'){
+      steps{
+
+      }
+    }
+  }
+}
+Scripted Pipeline
+Jenkinsfile (Scripted Pipeline)
+node{
+  stage('Build'){
+  
+  }
+  stage('Test'){
+
+  }
+  stage('Deploy'){
+
+  }
+}
+
+
+How to deploy job in Jenkins?
+Deploy to container plugin
+- Go to Manage Jenkins -> Manage Plugins, Go to the Available section and find the plugin "Deploy to container plugin" and install without restart
+This plugin takes a war/ear file and deploys that to a running remote application server at the end of a build
+- Go to your Build project, in the post-build action Choose the option "Deploy war/ear to a container"
+- In the Deploy war/ear to a container section, enter the required details of the server on which the files need to be deployed and click on the Save button. These steps will now ensure that the necessary files get deployed to the necessary container after a successful build
+
+How to use external plugins in jenkins?
+- Navigate to the Manage Jenkins -> Manage Plugins page in the web UI
+- Click on the Advanced tab
+- Choose the .hpi(Hudson Plugin Interface) file under the Upload Plugin section
+- Upload the plugin file
+On the CLI
+Copy the downloaded .hpi file into the JENKINS_HOME/plugins directory on the jenkins controller
+
+What are the things to keep in mind while creating Disaster recovery?
+- Assessment services
+- Implementation services
+- Audit services
+- IT and data continuity services
+- Hosted DR solutions 
+- Managed DR solutions
+
+EKS and AKS difference between?
+EKS allows 3000 nodes per cluster, while AKS allows only 1000 nodes per cluster
+EKS limits managed node groups per cluster to 30, while the AKS limit is 10
+EKS allows a maximum of 737 pods per node, whereas AKS allows only 250 pods per node
+EKS - Amazon Elastic Kubernetes Services - in June 2018
+AKS - Microsoft Azure Kubernetes Service - in June 2018
+GKE - Google Kubernetes Engine - in August 2015
+
+
+
+What is the use of lambda in AWS?
+AWS Lambda is a serverless compute service that runs your code in response to events and automatically manages the underlying compute resources for you. You can use AWS Lambda to extend other AWS services with custom logic, or create your own back end services that operate at AWS scale, performance, and security.
+AWS Lambda supports Java, Go, PowerShell, Node.js, C#, Python, Ruby
+
+What services have you used in AWS?
+EC2, S3, CloudWatch, IAM
+
+Why use namespaces? What is the problem with using the default namespace?
+While using the default namespace alone, it becomes hard over time to get an overview of all the applications you can manage in your cluster.
+Namespaces can also be useful for managing Blue/Green environments where each namespace can include a different version of an app and also share resources that are in other namespaces
+
+What is mean by Blue/Green deployment in Kubernetes?
+Blue/Green deployments are a form of progressive delivery where a new version of the application is deployed while the old version still exists. The two versions coexist for a brief period of time while user traffic is routed to the new version, before the old version is discarded (if all goes well).
+
+What is the difference between Docker Swarm and Kubernetes?
+The installation procedure of the kubernetes is very complicated but if it once installed then the cluster is robust, The Docker swarm installation process is very simple but the cluster is not at all robust
+Kubernetes can process the auto-scaling but the Docker swarm can not process the auto-scaling the pods based on incoming load
+
+How to troubleshoot if the pod is not getting scheduled
+kubectl describe pod podname -n namespce_name
+
+How to run a pod on a particular node
+nodeName
+nodeSelector
+nodeaffinities
+
+
+
+What are the main components of Kubernetes architecture?
+There are two primary components
+Master node and Worker node
+Each of these components has individual components in them
+
+What are Daemon sets?
+A Daemon set is a set of pods that runs only once on a host
+
+What is a Namespace in Kubernetes?
+Namespaces are used for dividing cluster resources between multiple user.
+
+Name the initial namespace from which kubernetes starts?
+Default
+Kube-system
+Kube-public
+
+How to troubleshoot a container?
+kubectl exec -it container_name /bin/sh
+ls -lrt
+
+How to get a list of pods from a particular namespace?
+kubectl get pods -n namespace_name
+
+How to create a namespace?
+kubectl create namespace namespace_name
+
+What are the different types of Orchestration Tools?
+Docker Swarm
+Kubernetes
+Mesosphere Marathon
+AWS ECS & EKS
+Azure Container Service
+Google Container Engine
+CoreOS Fleet
+OpenShift
+
+Kubernetes Setup Tools?
+- Hard Way - Manual Setup
+- Minikube - One Node Kubernetes cluster on your computer
+- Kubeadm - Multi node kubernetes cluster, can be created on any platforms vm's,ec2,physical machine etc
+- Kops - Multi node kubernetes cluster on AWS
+
+Definitions file in YAML
+apiVersion: (String)
+kind: (String)
+metadata: (Dictionary)
+spec:
+
+
+Kind-Version:
+Pod: v1
+Service: v1
+Deployment: apps/v1
+Ingress: networking/v1beta1
+HorizontalPodAutoscalers: autoscaling/v1
+
+POD: A Pod is the basic execution unit of a kubernetes application
+How to create a Pod file?
+pod-setup.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-pod
+  labels:
+    apps: frontend
+    project: infinity
+spec:
+  containers:
+    - name: httpd-container
+      image: httpd
+      ports:
+        - name: http-port
+          containerPort: 80
+kubectl create -f pod-setup.yml
+kubectl get pod
+kubectl describe pod webapp-pod
+kubectl get pod webapp-pod -o yaml
+kubectl get pod webapp-pod -o yaml > webpod-definition.yml
+kubectl edit pod webapp-pod
+
+
+How to debug a running container in Pod
+kubectl get pods
+### here your number pods will displayed, check whether those pods are running or not, If not running you need to debug for that pod only
+kubectl exec -it pod_name /bin/sh
+OR
+kubectl exec -it pod_name bash
+
+Opening a shell when a Pod has more than one container
+### If a Pod has more than one container, use --container or -c to specify a container in the kubectl exec command. For example, suppose you have a Pod named my-pod, and the Pod has two containers named main-app and helper-app. The following command would open a shell to the main-app container.
+### kubectl exec -i -t my-pod --container main-app -- /bin/bash
+### kubectl exec -it pod_name -c container_name bash
+### Note: The short options -i and -t are the same as the long options --stdin and --tty
+
+SERVICE: - Connect with your POD or connect to your POD
+Way to expose an application running on a set of Pods as a network service
+NodePort
+ClusterIP
+LoadBalancer
+
+NodePort:
+service-defs.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+spec:
+  type: NodePort
+  ports:
+  - targetPort: 80
+    port: 80
+    nodePort: 30005
+    protocol: TCP
+  selector:
+    app: frontend
+kubectl create -f service-defs.yml
+kubectl get svc
+kubectl describe svc weapp-service
+
+ClusterIP:
+tom-svc-clusterip.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  labels:
+    app: backend
+    project: infinity
+spec:
+  containers:
+    - name: tomcat-container
+      image: tomcat
+      ports:
+        - name: app-port
+          containerPort:8080
+---
+tom-svc-clusterip.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  type: ClusterIP
+  ports:
+  - targetPort: 8080
+    port: 8080
+    protocol: TCP
+  selector:
+    app: backend
+kubectl create -f tom-svc-clusterip.yml
+kubectl get svc
+kubectl describe svc app-service
+
+Replication Controller: Keep your running all the TIME
+Pods maintained by a ReplicationController are automatically replaced if they fail, are deleted, or are terminated
+Pod file:
+tom-svc-clusterip.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  labels:
+    app: backend
+    project: infinity
+spec:
+  containers:
+    - name: tomcat-container
+      image: tomcat
+      ports:
+        - name: app-port
+          containerPort:8080
+Replication Controller file:
+tom-app-rc.yml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: app-controller
+spec:
+  template:
+### for pod label (Same as the pod)
+    metadata:
+      labels:
+        app:backend 
+    spec:
+      containers:
+      - name: tomcat-container
+        image: tomcat
+        ports:
+        - name: app-port
+          containerPort: 8080
+### for pod label (Same as the pod)
+  replicas: 2
+  selector:
+    app: backend
+kubectl create -f tom-app-rc.yml
+kubectl get rc
+kubectl get pod
+# You will get 2 pods because replicas:2
+kubectl edit rc app-controller
+spec:
+  replicas: 2
+  selector:
+    app: backend
+  template:
+kubectl scale rc app-controller --replicas=4
+kubectl get pod
+# You will get 4 pods because --replicas=4
+
+
+
+Deployment: Upgrade, RollBack, Changes Gracefully
+A Deployment controller provides declarative updates for pods and ReplicaSets
+Deployment creates ReplicaSet to manage number pods
+v1,v2,v3 -> v1 -> Nodes - Deployment
+v1,v2,v3 -> v2 -> Nodes - Upgrade
+v1,v2,v3 -> v1 -> Nodes - RollBack
+Deployment -> ReplicaSet -> pod -> containerized applications (containers -> application)
+Deployment file:
+tom-app-deploy.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-controller
+spec:
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: tomcat-container
+        image: tomcat
+        ports:
+        - name: app-port
+          containerPort: 8080
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+### check the difference between deployment and replication controller
+kubectl create -f tom-app-deploy.yml
+kubectl get deploy
+kubectl get rs
+kubectl get pod
+### You will get 3 pods because replicas: 3
+kubectl describe deploy app-controller
+kubectl get deploy app-controller -o yaml
+kubectl edit deploy app-controller
+spec:
+  containers:
+  - image: tomcat
+    imagePullPolicy: Always
+kubectl set image deployment/app-controller tomcat-container=tomcat:8.5-jdk11-adoptopenjdk-openj9
+kubectl get pod
+# You will get 4 pods because new pod is creating after set image
+kubectl rollout history deployment deployment_name
+kubectl rollout undo deployment deployment_name
+kubectl rollout undo deploy app-controller
+Namespaces - Group your resources
+- default
+- kube-system
+- kube-public
+kubectl get namespaces
+kubectl get all -n kube-system
+kubectl create namespace dev
+# we need to add dev namespace in pod definition file
+Pod:
+tom-app-deploy.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  namespace: dev
+  labels:
+    app: backend
+    project: infinity
+kubectl create -f tom-app-deploy.yml -n dev
+kubectl config set-context --current --namespace=kube-system
+## context minikube modified
+
+Command & Arguments: Pass Commands & Args to your POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: halting-pod
+spec:
+  containers:
+  - name: pause4amoment
+    image: halt-ubuntu
+    command: ["mysleepCommand"]
+    args: ["10"]
+
+Environment Variables: Assign Variable Values
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-pod
+  namespace: dev
+  labels:
+    app: db
+    project: infinity
+spec:
+  containers:
+    - name: mysql-container
+      image: mysql:5.7
+      env:
+        - name: MYSQL_DATABASE
+          value: accounts
+        - name: MYSQL_ROOT_PASSWORD
+          value: somecomplextpassword
+
+Config Maps: Set & Inject Variables in POD
+Imperatve - Through command line
+kubectl create configmap db-config --from-literal=MYSQL_DATABASE=accounts \
+> --from-literal=MYSQL_ROOT_PASSWORD=somecomplexpassword
+kubectl get cm
+kubectl get cm db-config -o yaml
+kubectl describe cm db-config
+Config Map file:
+db-cm.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+data:
+  MYSQL_ROOT_PASSWORD: somecomplexpassword
+  MYSQL_DATABASE: accounts
+kubectl create -f db-cm.yml
+
+Secrets: Share encrypted variables to POD
+Store and manage sensitive information, such as password
+kubectl create secret generic db-secret --from-literal=MYSQL_ROOT_PASSWORD=somecomplexpassword
+##
+echo -n 'admin' > ./username.txt
+echo -n '123@PassWord' > ./password.txt
+##
+kubectl create secret generic db-user-pass --from-file=./username.txt --from-file=./password.txt
+kubectl get secret db-secret -o yaml
+Declarative:
+echo -n "somecomplexpassword" | base64
+## You will get encrypted code
+db-secret.yml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+type: Opaque
+data:
+  my_root_pass: "You need to enter that encrypted code"
+POD Reading Secret:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-pod
+  labels:
+    app: db
+    project: infinity
+spec:
+  containers:
+  - name: mysql-container
+    image: mysql:5.7
+    envFrom:
+      - secretRef:
+          name: db-secret
+OR
+spec:
+  containers:
+    - name: mysql-container
+      image: mysql:5.7
+      env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: my_root_pass
+
+
+Secret as a Volume:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-pod
+  labels:
+    app: db
+    project: infinity
+spec:
+  containers
+  - name: mysql-container
+    image: mysql:5.7
+    ports:
+      - name: db-port
+        containerPort: 3306
+  volumes:
+    - name: db-secret-vol
+      secret:
+        secretName: db-secret
+
+Ingress files:
+apiVersion: networking.k8s.io/v1
+
+kind: Ingress
+
+metadata:
+
+  name: dashboard-ingress
+
+  namespace: kubernetes-dashboard
+
+spec:
+
+  rules:
+
+  - host: dashboard.com
+
+    http:
+
+      paths:
+
+      - backend:
+
+          serviceName: kubernetes-dashboard
+
+          servicePort: 80
+
+
+
+HPA - Horizontal Pod Autoscaling:
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: deployment_name
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+
+Dockerfiles:
+FROM nginx
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/nginx.conf
+
+
+
+FROM mysql:5.7.25
+
+LABEL "Project"="ProjectName"
+
+LABEL "Author"="AuthorName"
+
+
+ENV MYSQL_ROOT_PASSWORD="password"
+
+ENV MYSQL_DATABASE="accounts"
+
+
+
+ADD db_backup.sql docker-entrypoint-initdb.d/db_backup.sql
+
+
+
+
+FROM tomcat:8-jre11
+
+LABEL "Project"="ProjectName"
+LABEL "Author"="AuthorName"
+
+RUN rm -rf /usr/local/tomcat/webapps/*
+
+COPY target/artifact.war /usr/local/tomcat/webapps/ROOT.war
+
+EXPOSE 8080
+
+CMD ["catalina.sh", "run"]
+
+WORKDIR /usr/local/tomcat/
+
+VOLUME /usr/local/tomcat/webapps
+
+Kops Cluster Creation:
+kops create cluster --name=route53 --state=s3://bucket_name --zones=zone1,zone2 --node-count=number_of_nodes --node-size=size_of_the_node --master-size=size_of_the_node --dns-zone=route53
+kops update cluster --name route53 --state=s3://bucket_name --yes --admin
+kops delete cluster --name route53 --state=s3://bucket_name --yes
+
+Grafana Monitoring:
+PortNumber: 3000
+Nodes - hours*numbers
+MariaDB - hours*numbers
+CPUUtilization - hours*milli cores
+Memory - hours*MB/GB
+Disks - hours*percentage(%)
+Liveness(VM's, DB, NameSpace) - hours*days
+
+Prometheus:
+PortNumber: 9090
+
+MariaDB:
+PortNumber: 3306
+
+MemCache:
+PortNumber: 11211
+
+RabbitMQ:
+PortNumber: 5672
+
+Nexus:
+PortNumber: 8081
+
+Jenkins:
+PortNumber: 8080
+
+Tomcat/ApacheTomcat:
+PortNumber: 
+
+Apache:
+PortNumber: 80
+
+SonarQube:
+PortNumber: 9000
+
+What are the 4 types of IP address?
+- public
+- private
+- static
+- dynamic
+
+IPv4 - 32bit
+IPv6 - 128 bit
+
+Private IP Classes:
+A - 10.0.0.0 - 10.255.255.255
+B - 172.16.0.0 - 172.16.31.255
+C - 192.168.0.0 - 192.168.255.255
+
+
+
+How to increase the pods in kubernetes cluster?
+kubectl scale deployment deployment_name --replicas=n
+becasue pods are in deployment only, so that is the reason we are using deployment and deployment_name while scaling the replicas of pods.
+
+What are the storage classes in S3 Bucket?
+- Standard - Availability Zones >=3 - Min storage duration (No Min storage duration) - Per-object fees apply for objects >=128KB
+- Intelligent-Tiering - Availability Zones >=3 - Min storage duration (No Min storage duration) - Per-GB fees apply
+- Standard-IA (Infrequent Access) - Availability Zones >=3 - 30 days - Per-GB fees apply
+- One Zone-IA (Infrequent Access) - Availability Zones =1 - 30 days - Per-GB fees apply
+- Glacier - Availability Zones >=3 - 90 days - Per-GB fees apply
+- Glacier Deep Archive - Availability Zones >=3 - 180 days - Per-GB fees apply
+- Reduced redundancy - Availability Zones >=3 - Min storage duration (No Min storage duration) - Per-GB fees apply
+
+Object in the S3 Bucket we need to store 365 days, for this which storage class you are using?
+While uploading object only you need to select the storage class as Reduced redundancy Storage Class
+OR
+select the object -> Click on Actions -> Click on Edit Storage Class -> select the Reduced redundancy storage class, for this there is no minimum storage duration.
+
+Amazon S3 Bucket Life Cycle?
+- PUT Bucket lifecycle
+- GET Bucket lifecycle
+- DELETE Bucket lifecycle
+
+JAVA_HOME - C:\Program Files\Java\jdk-11.0.11\
+PATH - C:\Program Files\Java\jdk-11.0.11\bin\
+
+git config --global user.name "Raju Alakuntla"
+git config --global user.email "RajuAlakuntla93@gmail.com"
+cat .gitconfig (You will see the user name and email)
+
+
+ssh-keygen (to create a key)
+.ssh/id_rsa - private key
+.ssh/id_rsa.pub - public key
+
+Go to GitHub -> Settings -> SSH -> Add SSH Key -> Add the public key here
+fork -> it will copy the entire repository from other account into our account in GitHub 
+
+We need to install Node Js and NPM for NodeJS projects
+
+
+How do I become a DevOps administrator?
+Here are some key skills SysAdmins should learn and master to succeed in a DevOps role
+- Cloud Computing
+- Coding and Scripting Skills
+- Continuous Integration
+- Forward Thinking Deployment Strategies
+- Configuration Management
+- Application Containerization and IAAS
+
+What are StatefulSet in Kubernetes?
+StatefulSet is the workload API object used to manage stateful applications. Manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. Like a Deployment, a StatefulSet manages Pods that are based on an identical container spec.
+### https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/ try this link
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: k8s.gcr.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
+### take 2 terminals to run statefulset
+1st terminal
+kubectl get pods -w -l app=nginx
+2nd terminal
+kubectl apply -f web.yaml
+service/nginx created
+statefulset.apps/web created
+kubectl get service nginx
+NAME      TYPE         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+nginx     ClusterIP    None         <none>        80/TCP    12s
+kubectl get statefulset web
+NAME      DESIRED   CURRENT   AGE
+web       2         1         20s
+kubectl get pods -l app=nginx
+NAME      READY     STATUS    RESTARTS   AGE
+web-0     1/1       Running   0          1m
+web-1     1/1       Running   0          1m
+
+==================================================================================================================
+==================================================================================================================
+
+Jenkinsfile
+---
+pipeline {
+    
+	agent any
+/*	
+	tools {
+        maven "maven3"
+    }
+*/	
+    environment {
+        NEXUS_VERSION = "nexus3"
+        NEXUS_PROTOCOL = "http"
+        NEXUS_URL = "172.31.7.37:8081"
+        NEXUS_REPOSITORY = "vprofile-release"
+        NEXUS_REPOGRP_ID    = "vprofile-grp-repo"
+        NEXUS_CREDENTIAL_ID = "nexuslogin"
+        ARTVERSION = "${env.BUILD_ID}"
+    }
+	
+    stages{
+        
+        stage('BUILD'){
+            steps {
+                sh 'mvn clean install -DskipTests'
+            }
+            post {
+                success {
+                    echo 'Now Archiving...'
+                    archiveArtifacts artifacts: '**/target/*.war'
+                }
+            }
+        }
+
+	stage('UNIT TEST'){
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+	stage('INTEGRATION TEST'){
+            steps {
+                sh 'mvn verify -DskipUnitTests'
+            }
+        }
+		
+        stage ('CODE ANALYSIS WITH CHECKSTYLE'){
+            steps {
+                sh 'mvn checkstyle:checkstyle'
+            }
+            post {
+                success {
+                    echo 'Generated Analysis Result'
+                }
+            }
+        }
+
+        stage('CODE ANALYSIS with SONARQUBE') {
+          
+		  environment {
+             scannerHome = tool 'sonar4.4.0.2170'
+          }
+
+          steps {
+            withSonarQubeEnv('sonar-pro') {
+               sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
+                   -Dsonar.projectName=vprofile-repo \
+                   -Dsonar.projectVersion=1.0 \
+                   -Dsonar.sources=src/ \
+                   -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
+                   -Dsonar.junit.reportsPath=target/surefire-reports/ \
+                   -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+                   -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+            }
+
+            timeout(time: 5, unit: 'MINUTES') {
+               waitForQualityGate abortPipeline: true
+            }
+          }
+        }
+
+        stage("Publish to Nexus Repository Manager") {
+            steps {
+                script {
+                    pom = readMavenPom file: "pom.xml";
+                    filesByGlob = findFiles(glob: "target/*.${pom.packaging}");
+                    echo "${filesByGlob[0].name} ${filesByGlob[0].path} ${filesByGlob[0].directory} ${filesByGlob[0].length} ${filesByGlob[0].lastModified}"
+                    artifactPath = filesByGlob[0].path;
+                    artifactExists = fileExists artifactPath;
+                    if(artifactExists) {
+                        echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version} ARTVERSION";
+                        nexusArtifactUploader(
+                            nexusVersion: NEXUS_VERSION,
+                            protocol: NEXUS_PROTOCOL,
+                            nexusUrl: NEXUS_URL,
+                            groupId: NEXUS_REPOGRP_ID,
+                            version: ARTVERSION,
+                            repository: NEXUS_REPOSITORY,
+                            credentialsId: NEXUS_CREDENTIAL_ID,
+                            artifacts: [
+                                [artifactId: pom.artifactId,
+                                classifier: '',
+                                file: artifactPath,
+                                type: pom.packaging],
+                                [artifactId: pom.artifactId,
+                                classifier: '',
+                                file: "pom.xml",
+                                type: "pom"]
+                            ]
+                        );
+                    } 
+		    else {
+                        error "*** File: ${artifactPath}, could not be found";
+                    }
+                }
+            }
+        }
+
+
+    }
+
+
+}
+
+===============================================================================================================
+===============================================================================================================
+
+Jenkins - Ansible (CI/CD)
+------------------------
+
+Build - Sonar Scanner - Deploy to Nexus - Deploy to staging Ansible - Deploy to Prod Ansible
+CI - Build - Sonar Scanner - Deploy to Nexus
+CD - Deploy to staging Ansible - Deploy to Prod Ansible
+
+### /usr/local/tomcat8/webapps/ROOT/WEB-INF/classes/applicaton.properties
+
+Install the Ansible on Jenkins Server
+Install the ansible plugin
+
+In the Build -- Add build step -- Invoke Ansible playbook -- playbook path - ansible/site.yml -- Inventory - Inline content - content - instance_name ansible_host=private_ip_of_instance and [appsrvgrp] and instance_name -- Credentials - Add - Kind - SSH Username with private key - Username - ubuntu - Private Key - Enter directly - Add - Copy and paste the private key of instance - Add -- Advanced - Disable the host SSH key check - select --Extra variables - Add Extra Variable
+Pass these variables
+USER - admin (login user of nexus)
+PASS - password of nexus login - Select Hidden variable in build log
+nexusip - nexus instance private ip
+reponame - repository name from nexus
+groupid - groupid from nexus
+time - $TIME (input taken from the user)
+build - $ID
+version - $TIME-$ID.war
+
+Select This project is parameterized - Add Parameter - String Parameter - TIME, ID
+Save
+
+Post Build Step - build other projects (manual step) - Predefined parameters - Parameters - 
+TIME=$TIME
+ID=$ID
+Save
+
+Roles
+------
+ansible-playbook playbook_name
+
+Notify & Handlers
+notify:
+  - Restart ntp service on centos
+
+handlers:
+  - name: Restart ntp service on centos (name must match with notify name)
+    service:
+      name: ntpd
+Esc+:wq
+
+mkdir roles
+cd roles
+ansible-galaxy init commonsetup
+### Role commonsetup was created successfully
+ls -R commonsetup/
+### README.md defaults files handlers meta tasks templates tests vars
+sudo apt install tree -y
+ls
+commonsetup
+tree
+commonsetup
+  README.md
+  defaults
+    main.yml
+  files
+  handlers
+    main.yml
+  meta
+    main.yml
+  tasks
+    main.yml
+  templates
+  tests
+    inventory
+    test.yml
+  vars
+    main.yml
+
+copy the tasks code into roles/commonsetup/tasks/main.yml and vars into roles/commonsetup/vars/main.yml
+
+setup.yml
+---
+- name: NTP Service Deployment
+  hosts: all
+  become: yes
+  roles:
+    - role: commonsetup
+      vars:
+        ntp0: value0
+        ntp1: value1
+        ntp2: value2
+Esc+:wq
+
+sudo vim /etc/hosts
+private_ip web01
+private_ip web02
+private_ip web03
+private_ip db01
+Esc+:wq
+
+ansible -m ping all
+
+vim inventory-dev
+web01
+web02
+web03
+db01
+
+[websrvgrp]
+web01
+web02
+web03
+
+[dbsrvgrp]
+db01
+
+[parent:children]
+websrvgrp
+dbsrvgrp
+
+[parent:vars]
+ansible_user=centos/ubuntu
+ansible_ssh_private_key_file=./private-key.pem
+Esc+:wq
+
+ansible-playbook playbook_name
+history > history.txt
+sudo apt install zip -y
+zip history.zip history.txt
+logout from virtual machine
+you are in local machine now
+scp -i /e/ansible-control-key.pem ubuntu@publicIP:/home/ubuntu/history.zip /e/
+
+
+Difference between Ansible and Terraform?
+Ansible
+- Ansible is a configuration management tool
+- It follows a procedural approach
+- It is mainly used for configuring servers with the right software and updates already configured resources
+- Ansible supports the provisioning of bare metal servers
+- It provides full support for packaging and templating
+- It does not have lifecycle management at all
+Terraform
+- Terraform is a provisioning tool
+- It follows a declarative Infrastructure as a Code approach
+- It is the best fit orchestrating cloud services and setup cloud infrastructure from scratch
+- Terraform does not support bare metal provisioning by default
+- It does not provide better support in terms of packaging and templating
+- It highly depends on lifecycle or state management
+
+
+
+What is a Control Plane Node or Master Node?
+A Kubernetes control plane node is a server running collection of system services that make up the control plane of the cluster. Sometimes we call them Masters, Heads or Head Nodes.
+
+What is the API Server?
+The API Server is the Grand Central of Kubernetes. All communication, between all components, must go through the API Server.
+
+What is the Cluster Store or etcd?
+The cluster store is the only stateful part of the control plane and persistently stores the entire configuration and state of the cluster – no cluster store, no cluster.
+
+Explain the Scheduler?
+At a high level, the scheduler watches the API Server for new work tasks and assign them to appropriate healthy worker nodes.
+
+What is the Cloud Controller Manager?
+If you are running cluster on a supported public cloud platform, such as AWS, Azure, GCP, or Linode, your control plane will be running a cloud controller manager.
+ 
+
+What is mean by Worker Node?
+Nodes are servers that are the workers of a kubernetes cluster
+-	Watch the API Server for new work assignments
+-	Execute work assignments
+-	Report back to the control plane (via API Server)
+ 
+Kubelet
+Kube-proxy (Network proxy)
+Container runtime
+
+What is kubelet?
+The kubelet is main Kubenetes agent and runs on every cluster node.
+
+What is container runtime?
+The kubelet needs a container runtime to perform container-related tasks – things like pulling images and starting and stopping containers.
+
+What is mean by kube-proxy?
+Kube-proxy runs on every node and is responsible for local cluster networking.
+It ensures each node gets its own unique ip address, and it implements local iptables or IPVS rules to handle routing load-balancing of traffic on the pod network.
+
+3-tier Architecture
+repository/src/main/resources/application.properties
+------------------
+#JDBC Configutation for Database Connection
+jdbc.driverClassName=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://db01:3306/accounts?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+jdbc.username=admin
+jdbc.password=admin123
+
+#Memcached Configuration For Active and StandBy Host
+#For Active Host
+memcached.active.host=mc01
+memcached.active.port=11211
+#For StandBy Host
+memcached.standBy.host=127.0.0.2
+memcached.standBy.port=11211
+
+#RabbitMq Configuration
+rabbitmq.address=rmq01
+rabbitmq.port=5672
+rabbitmq.username=test
+rabbitmq.password=test
+
+#Elasticesearch Configuration
+elasticsearch.host =192.168.1.85
+elasticsearch.port =9300
+elasticsearch.cluster=vprofile
+elasticsearch.node=vprofilenode
+--------------------
+
+repository/ansible/ansible.cfg
+[defaults]
+host_key_checking = False
+timeout = 30
+
+repository/ansible/site.yml
+---
+- import_playbook: tomcat_setup.yml
+- import_playbook: vpro-app-setup.yml 
+
+
+Prerequisites
+JDK 1.8 or later
+Maven 3 or later
+MySQL 5.6 or later
+
+
+Database
+Here, we used Mysql DB MSQL DB Installation Steps for Linux ubuntu 14.04:
+$ sudo apt update
+$ sudo apt install mysql-server
+
+Then look for the file :
+repository/src/main/resources/accountsdb.sql
+accountsdb.sql file is a mysql dump file. we have to import this dump to mysql db server
+mysql -u <user_name> -p accounts < accountsdb.sql
+
+
+
+VPC
+1 VPC - Name of the VPC
+VPC IPv4 CIDR 192.168.0.0/16
+4 subnets
+pubsub1 192.168.1.0/24 - subnet - us-west-1b
+pubsub2 192.168.2.0/24 - subnet - us-west-1c
+privsub1 192.168.3.0/24 - subnet - us-west-1b
+privsub2 192.168.4.0/24 - subnet - us-west-1c
+1 Internet GW
+2 NAT GW
+2 Elastic IP ( 1 Elastic IP for 1 NAT GW)
+2 Route tables
+  1 pub sub => routes to IGW
+  2 priv sub => routes to NAT GW
+You must place any webserver/instance in private network only, because its having high security & availability
+Private subnet means it will doesn't have public ip
+User will access the webapplication through load balancer, load balancer is in public subnet
+Launch one more instance for public ip i.e bastion host or jump server (only Amazon Linux2 or RHEL, don't go with ubuntu or centos)
+select public subnet for bastion host
+### different private keys & security groups for these 2 instances
+### in private instance - security group - inbound rules - 22 bastion host group - Allow to do SSH from Bastion Host - Save
+cat private-key.pem ### copy this private key of private ip instance
+ssh -i .key ec2-user@publicip (bastion host ssh)
+vim private-key.pem (for application instance)
+paste the private key here
+ESC+:wq
+ls -ltr
+chmod 400 private-key.pem
+ssh -i private-key.pem ubuntu@privateip (private ip of application instance)
+
+
+
+
+
+Jenkinsfile
+pipeline{
+	agent any
+	tools{
+		maven="MAVEN3"
+		jdk="OracleJDK8"
+	}
+	environment{
+		
+	}
+	stages{
+		stage('Build'){
+			steps{
+				sh 'mvn -s settings.xml -DskipTests install'
+			}
+		}
+	}
+}
+
+
+
+
+-(Hyphen) is not accepting in Jenkinsfile
+_(Underscore) is accepting the Jenkinsfile
+
+
+maven life cycle
+validate, compile, test, package, verify, install, deploy
+vctpvid
+
+
+Go to GitHub repository -> Settings -> WebHook -> Add the jenkins public ip with port 8080
+http://jenkinspublicip:8080/github-webhook/
+
+usermod -aG docker jenkins
+id jenkins
+
+sudo -i
+su - jenkins 
+docker images
+
+Helm - Pakaging system for definition files to deploy it to kubernetes 
+
+
+Clone - is used to create a local copy of a remote repository on your machine.
+Pull - is used to fetch changes from a remote repository and integrate them into the current branch of your local repository.
+Fork - is a feature of hosting platforms and involves creating a personal copy of a repository on the platform.
+Fetch - if you want to see what changes are present in the remote repository but do not want to automatically incorporate them into your local working directory.
+
+docker compose?
+Docker Compose is widely used for local development, testing, and deploying complex applications with multiple interconnected services. It simplifies the process of managing multi-container applications and promotes consistency across different environments.
+
+Docker volume?
+In Docker, a volume is a way to persist and share data between Docker containers. Volumes provide a mechanism for storing data outside of the container filesystem, allowing data to persist even if the container is stopped or removed. Volumes are particularly useful for managing persistent data and facilitating data sharing between containers.
+# Create a named volume
+docker volume create my_data_volume
+# Run a container, mounting the volume
+docker run -d --name my_container -v my_data_volume:/app/data my_image
+
+
+Docker Architecture:
+Docker uses a client-server architecture to manage and run containers. The key components of the Docker architecture include the Docker client, Docker daemon, Docker images, and Docker registries.
+Docker Client:
+The Docker client is the command-line interface (CLI) that allows users to interact with Docker. It accepts commands from the user and communicates them to the Docker daemon for execution. The Docker client can run on the same host as the Docker daemon or connect to a remote Docker daemon.
+Docker Daemon:
+The Docker daemon (dockerd) is a background process that manages Docker containers on a host system. It is responsible for building, running, and monitoring containers. The daemon listens for Docker API requests and communicates with the host operating system to manage container processes.
+Docker Images:
+Docker images are lightweight, standalone, and executable packages that contain all the necessary components to run a piece of software, including the code, runtime, libraries, and system tools. Images serve as the base for creating Docker containers. Images are stored in a layered format, with each layer representing a specific set of changes to the filesystem.
+Docker Containers:
+Docker containers are instances of Docker images. Containers encapsulate an application and its dependencies, providing a consistent and isolated environment for execution. Containers run in isolation from the host system and other containers, but they share the same OS kernel.
+Docker Registries:
+Docker registries are repositories for Docker images. They are centralized locations where Docker users can store and share their images. The default public registry is Docker Hub, but organizations can set up private registries to store and distribute custom images. Docker images can be pulled from or pushed to registries.
+Docker Compose:
+While not a core component of the Docker architecture, Docker Compose is a tool that simplifies the management of multi-container applications. It allows users to define and run multi-container Docker applications using a YAML file to specify the services, networks, and volumes.
+
+
+
+most challenging you faced in your last organizations
+how to do the release without take the downtime
+
+
+
+Docker 50 commands
+_________________
+docker run - run a container from an image
+docker pull - pull an image from a registry
+docker push - push an image to a registry
+docker build - build an image from a Dockerfile
+docker ps - list running containers
+docker stop - stop a running container
+docker start - start a stopped container
+docker restart - restart a container
+docker logs - show the logs of a container
+docker exec - execute a command inside a running container
+docker images - list available images
+docker rm - remove a container
+docker rmi - remove an image
+docker inspect - show information about a container
+docker network create - create a network for containers to communicate
+docker network connect - connect a container to a network
+docker network disconnect - disconnect a container from a network
+docker port - show the mapped ports of a container
+docker cp - copy files between a container and the host
+docker commit - create a new image from a container's changes
+docker login - log in to a registry
+docker logout - log out of a registry
+docker tag - tag an image with a new name
+docker export - export the contents of a container as a tar archive
+docker import - create a new image from a tar archive
+docker save - save an image as a tar archive
+docker load - load an image from a tar archive
+docker top - show the processes running inside a container
+docker stats - show resource usage statistics of containers
+docker diff - show the changes made to a container's filesystem
+docker events - show the events generated by Docker
+docker history - show the history of an image
+docker pause - pause a running container
+docker unpause - unpause a paused container
+docker kill - send a signal to a container to stop it abruptly
+docker wait - wait for a container to exit and return its exit code
+docker attach - attach to a running container's console
+docker buildx - build and push multi-platform images
+docker compose - manage multi-container applications with Docker Compose
+docker swarm - create and manage a cluster of Docker nodes
+docker volume create - create a named volume for persistent data storage
+docker volume ls - list available volumes
+docker volume rm - remove a named volume
+docker system prune - remove all unused objects from Docker
+docker system df - show the usage of Docker objects
+docker system events - show the events generated by Docker on the system
+docker system info - show the system-wide information about Docker
+docker system inspect - show detailed information about Docker objects
+docker system logs - show the system logs of Docker
+docker system version - show the version of Docker installed on the system
+
+
+arunkumar@Aruns-MacBook-Pro ~ % df -hY
+Arunkumar – username
+Aruns-MacBook-Pro – hostname
+~ - home directory
+% - shell prompt
+df – disk free – it is used to display the disk space usage
+-h – human readable – like KB, MB, GB
+-Y – consistent output format
+Filesystem – name of the file system
+Type – type of the file system
+Size – total size of the file system 
+Used – it will show the disk space that currently use on the file system
+Avail – it will display the available disk space on the file system
+Capacity – it will display the percentage of the disk space that is currently in use
+iused – it will display the number inodes (index nodes) used on the file system. Inodes stores the information about files and directories.
+ifree – it will display the number of free inodes on the file system
+%iused – it will display the percentage of inodes that are currently in use
+Mounted on – it will specify the mount point where the file system is mounted in the file system hierarchy.
+
+
+Linux Interview Questions & Answers:
+
+1. What is the difference between hard links and soft links?
+Answer: Hard links point directly to the inode of a file, while soft links (or symbolic links) are separate files that contain the path to the target file.
+
+2. Explain the significance of the 'root' user in Linux.
+Answer: The 'root' user is the superuser with administrative privileges. It has the highest level of access and can perform any operation on the system.
+
+3. How do you find all files modified in the last 10 minutes in a directory and its subdirectories?
+Answer: Use the find command: find /path/to/directory -mmin -10.
+
+4. What is a kernel in Linux?
+Answer: The kernel is the core of the operating system that manages hardware resources and provides essential services for other parts of the system.
+
+5. Explain the purpose of the 'chmod' command.
+Answer: 'chmod' changes the permissions of a file or directory. It can add or remove read, write, and execute permissions for the owner, group, and others.
+
+6. How can you find out the current runlevel of a Linux system?
+Answer: Use the runlevel command: runlevel.
+
+7. Explain the role of the 'grep' command in Linux.
+Answer: 'grep' is used for searching text patterns in files. It can search for patterns using regular expressions and display matching lines.
+
+8. What is the purpose of the 'df' command?
+Answer: 'df' displays information about disk space usage on the filesystem.
+
+9. Explain the 'ps' command and how it is used to view processes.
+Answer: 'ps' shows information about currently running processes. Common options include ps aux to display detailed information about all processes.
+
+10. How do you change the priority of a process in Linux?
+Answer: Use the nice command to run a process with a specified priority. For example, nice -n 10 command sets a lower priority.
+
+11. What is the purpose of the 'awk' command?
+Answer: 'awk' is a versatile text processing tool that performs pattern scanning and text extraction. It is often used for data manipulation and reporting.
+
+12. Explain the role of the 'tar' command in Linux.
+Answer: 'tar' is used for creating and extracting archive files. It bundles multiple files into a single archive file and can compress the archive using various algorithms.
+
+13. How can you check the connectivity between two hosts using the 'ping' command?
+Answer: Use the ping command followed by the target IP or hostname: ping <target>.
+
+14. What is a cron job, and how do you create one?
+Answer: A cron job is a scheduled task in Linux. To create one, use the crontab -e command and add an entry specifying the schedule and the command to be executed.
+
+15. Explain the purpose of the 'iptables' command.
+Answer: 'iptables' is used for configuring the Linux kernel's netfilter firewall. It can filter, modify, or redirect network packets.
+
+
+git diff and git status 
+git diff - shows the difference between commits
+git status - summary of the current state of the working directory
+
+git stash - Stashing changes allows you to switch branches or perform other operations without committing half-finished work
+
+git clone - create a local copy and 
+git remote - Manages connections to remote repositories
+
+containerization - 
+Lighter-weight isolation between containers
+Highly portable, containers encapsulate dependencies
+Faster startup time for containers
+Microservices, cloud-native applications, CI/CD pipelines
+
+virtualization - 
+Strong isolation between VMs	
+Less portable, as VMs may have dependencies on OS	
+Slower startup time for VMs	
+Legacy applications, environments requiring strong isolation	
+
+kubernetes cluster - A Kubernetes cluster is a set of nodes (physical or virtual machines) that collectively run containerized applications managed by Kubernetes
+
+node - a node refers to a single machine within a Kubernetes cluster
+
+host - a host typically refers to any device or computer that is connected to a network and can send or receive data.
+
+if the agent node is offline then what will you do - it can impact the ability of Jenkins to execute jobs that are assigned to that node.
+
+
+Master and Slave Concept:
+sudo apt install openjdk-8-jdk -y
+# We need java, then we can add kops as a slave to jenkins
+ls
+sudo mkdir /opt/jenkins-slave
+sudo chown ubuntu.ubuntu /opt/jenkins-slave -R
+java -version
+Go to Kops instance security group
+22 - Jenkins SG - Allow Jenkins to do SSH
+Save rules
+Go to Jenkins - Manage Jenkins - Manage Nodes - New Node - kops - select Permanent Agent - OK
+Remote root directory - /opt/jenkins-slave
+Labels - KOPS
+Usage - Only build jobs with label expressions matching this node
+Launch method - Launch agents via SSH
+Host - PrivateIP of Kops Instance
+Credentials - Add - Jenkins - Kind - SSH Username with private key - 
+ID - kops-login
+Description - kops-login
+Username - ubuntu
+Private Key - Enter directly - Add
+## LOgout from Kops
+cat /e/kops-key.pem
+# Copy the private key
+Paste the private key here
+Add
+Credentials - select kops-login
+Host Key verification Strategy - Non verifying verification strategy
+Save
+ReLaunch Agent
+
+
+CICD Containers Pipeline:
+pipeline {
+
+    agent any
+/*
+	tools {
+        maven "maven3"
+		jdk
+    }
+*/
+    environment {
+        registry = "kubeimran/vproappdock" # Enter Your DockerHub username/repository name
+		registryCredential = 'dockerhub' # This from Jenkins-ManageJenkins - Credentials - System - Global Credentials - you will see dockerhub name, becasue we are already adding dockerhub credentials to the jenkins
+        
+    }
+
+    stages{
+
+        
+        stage('BUILD'){
+            steps {
+                sh 'mvn clean install -DskipTests'
+            }
+            post {
+                success {
+                    echo 'Now Archiving...'
+                    archiveArtifacts artifacts: '*/target/.war'
+                }
+            }
+        }
+
+        stage('UNIT TEST'){
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('INTEGRATION TEST'){
+            steps {
+                sh 'mvn verify -DskipUnitTests'
+            }
+        }
+
+        stage ('CODE ANALYSIS WITH CHECKSTYLE'){
+            steps {
+                sh 'mvn checkstyle:checkstyle'
+            }
+            post {
+                success {
+                    echo 'Generated Analysis Result'
+                }
+            }
+        }
+
+        stage('CODE ANALYSIS with SONARQUBE') {
+
+            environment {
+                scannerHome = tool 'mysonarscanner4'
+            }
+
+            steps {
+                withSonarQubeEnv('sonar-pro') {
+                    sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
+                   -Dsonar.projectName=vprofile-repo \
+                   -Dsonar.projectVersion=1.0 \
+                   -Dsonar.sources=src/ \
+                   -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
+                   -Dsonar.junit.reportsPath=target/surefire-reports/ \
+                   -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+                   -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+                }
+
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        stage('Build Docker App Images'){
+		  steps{
+		    script{
+			  dockerImage = docker.build registry + ":V$BUILD_ID"
+			}
+		  }
+		}
+		
+		stage('Upload Image'){
+		  steps{
+		    script{
+			  docker.withRegistry('', registryCredential){
+			    dockerImage.push("V$BUILD_ID")
+				dockerImage.push('latest')
+			  }
+			}
+		  }
+		}
+		
+		stage('Remove Unused Docker Images'){
+		  steps{
+		    sh "docker rmi $registry:V$BUILD_ID"
+		  }
+		}
+		
+		stage('Kubernetes Deploy'){
+		  agent{label 'KOPS'}
+		    steps{
+			  sh "helm upgrade --install --force vprofile-stack helm/vprofilecharts --set appimage=${registry}:V${BUILD_ID} --namespace prod"
+			}
+		}
+
+
+    }
+
+
+}
+
+
+Build Triggers:
+Build after other projects are built
+Build periodically
+GitHub Branches
+GitHub Pull Requests
+GitHub hook trigger for GITScm polling
+Poll SCM
+Quiet period
+Trigger builds remotely (e.g., from scripts)
+
+
+
+Crontab -e
+MINUTE	Minutes within the hour (0–59)
+HOUR	The hour of the day (0–23)
+DOM	The day of the month (1–31)
+MONTH	The month (1–12)
+DOW	The day of the week (0–7) where 0 and 7 are Sunday.
+
+
+how do you delete a branch in git
+git branch -d branch_name
+git branch -D branch_name (force delete)
+
+
+difference between declarative and scripted pipeline
+Declarative Pipelines offer simplicity, consistency, and built-in abstractions, while 
+Scripted Pipelines provide flexibility, power, and granular control.
+
+
+difference between DevOps and SRE
+DevOps is more broadly focused on the entire software delivery lifecycle, while 
+SRE is specifically focused on ensuring the reliability and availability of production systems.
+
+
+Interview Questions:-
+
+What is cicd?
+CI (Continuous Integration): Developers frequently merge code changes into a shared repository, triggering automated builds and tests.
+CD (Continuous Delivery): After CI, the code is automatically deployed to staging environments for further testing.
+CD (Continuous Deployment): Extends Continuous Delivery by deploying changes directly to production without manual intervention.
+
+Difference between ALB and NLB
+Feature	ALB (Application Load Balancer)	NLB (Network Load Balancer)
+Layer	Layer 7 (HTTP/HTTPS)	Layer 4 (TCP/UDP)
+Routing	Content-based routing (path, host)	IP-based routing
+Performance	Moderate latency	Ultra-low latency
+Target Types	EC2, Lambda, Containers	EC2, IPs, On-prem servers
+Protocol Support	HTTP, HTTPS, WebSocket	TCP, TLS, UDP
+Use Case	Web applications, APIs	High-performance, real-time applications
+
+How to integrate SonarQube in declarative pipeline
+Install SonarQube Plugin in Jenkins.
+Configure SonarQube Server in Jenkins (Manage Jenkins -> Configure System).
+
+Webhooks
+Webhooks are automated HTTP callbacks triggered by an event in a system
+
+Meta data vs user data
+Feature	Meta Data	User Data
+Definition	Information about the EC2 instance	Script executed at launch
+Access	http://169.254.169.254/latest/meta-data/	http://169.254.169.254/latest/user-data/
+Persistence	Read-only, updates dynamically	Executes only at the first boot
+Example Usage	Instance ID, AMI ID, Security Groups	Install software, configure settings
+
+If I lose the state files in terraform how can I recover that state files
+terraform init
+terraform refresh
+
+
+How to increase ec2 instance storage without stoping the instance
+Go to EC2 Console -> Elastic Block Store (EBS) -> Volumes.
+Select the volume and click Modify Volume.
+Increase the size and click Modify.
+
+Rollout and rollback
+Rollout refers to the process of deploying changes or updates to a system or application.
+Rollback refers to the process of reverting to a previous state or version of a system or application.
+
+I am trying to connect an ec2 instance but I am facing issues how to debug?
+If the state is stopped or terminated, start a new instance.
+If it's running but unresponsive, consider rebooting
+Ensure Inbound Rules allow SSH (port 22) or required port (e.g., 80 for HTTP).
+Ensure you're using the correct private key:
+
+Liveness and readiness?
+Liveness and Readiness probes are used in Kubernetes to monitor application health.
+Probe Type	Purpose	Example Command
+Liveness Probe	Checks if the container is still running	`curl -f http://localhost:8080/healthz
+Readiness Probe	Checks if the container is ready to serve traffic	`curl -f http://localhost:8080/ready
+
+difference between rsync and scp
+Efficiency: rsync is more efficient for synchronizing large files or directories due to its delta-transfer algorithm.
+Synchronization: rsync is designed for synchronizing files and directories, while scp is primarily used for simple file copying.
+Usage: While both utilities use SSH for secure file transfer, rsync provides more advanced options for synchronization, incremental backups, and efficient transfers, while scp is simpler and more straightforward for basic file copying.
+In summary, rsync is preferable when efficient synchronization or incremental backups are required, while scp is suitable for simple, secure file copying between hosts.
+
+what is 53 in route53
+The "53" in Route 53 is a reference to the standard DNS port number used for DNS queries and responses.
+
+
+difference between EBS and S3?
+EBS is designed for block-level storage attached to EC2 instances, optimized for performance and low-latency access. On the other hand, S3 is an object storage service suitable for scalable, durable storage of large volumes of data accessed over HTTP(S) from anywhere on the internet.
+
+
+can we create multiple images from one docker file
+you can create multiple Docker images from a single Dockerfile by using build arguments or conditional logic to customize the image during the build process. 
+
+
+can we create copy of s3 bucket instead of creating new one
+yes we can copy
+
+
+difference between continuous deployment and continuous delivery
+the key difference lies in the final step: Continuous Delivery stops at preparing code changes for release, while Continuous Deployment automatically deploys those changes to production without human intervention
+
+
+
+difference between upgrade and update?
+
+Upgrade - 17 to 18 version
+Update - 17.0.1 to 17.0.2 .... 
+         18.0.1 to 18.0.2.....
+		 
+		 
+		 
+		 
+
+
+
+
+Terraform Interview Questions:
+Q1: Suppose you created an ec2 instance with terraform and after creation, you have removed the entry from the state file now, when you run terraform apply what will happen?
+As we have removed the entry from that state file so terraform will no longer manage that resource so on the next apply it will create a new resource.
+
+Q2: What is a state file in Terraform?
+A state file is a file in which Terraform keeps track of all the infrastructure that is deployed by it
+
+Q3: What is the best way to store the terraform state file?
+The best way to store the state file is to keep it in the remote backend like S3 or GitLab-managed terraform state so, that whenever multiple people are working on the same code resource duplication won't happen.
+
+Q4: What is terraform state locking?
+Whenever we are working on any terraform code and do terraform plan, apply or destroy terraform will lock the state file in order to prevent the destructive action.
+
+Q5: What is Terraform backend?
+A backend defines where Terraform stores its state data files. Terraform uses persisted state data to keep track of the resources it manages.
+
+Q6: What is a plugin in Terraform?
+The plugin is responsible for converting the HCL code into API calls and sends the request to the appropriate provider (AWS, GCP)
+
+Q7: What is a null resource?
+As in the name you see a prefix null which means this resource will not exist on your Cloud Infrastructure Terraform null_resource can be used in the following scenario -
+Run shell command
+You can use it along with local provisioner and remote provisioner
+It can also be used with Terraform Module, Terraform count, Terraform Data source, Local variables
+It can even be used for output block
+
+Q8: What are the types of provisioners?
+Remote exec: Run commands using Terraform on a remote server
+Local exec: Run commands using Terraform on the local system
+
+Q9: What is the use of Terraform module?
+We can create the terraform modules one time and reuse them whenever needed
+To make to code standardized To reduce the code duplication
+The module can be versioned
+
+Q10: If I have created EC2 and VPC using Terraform and unfortunately tfstate file got deleted, can you recover it? (File is only on the local machine not on s3 or dynamoDB)
+You can import the resources that are created by Terraform using terraform import command and then it will come to the state file
+
+A Terraform apply fails due to a state file lock issue. How would you resolve it?
+Check Active Locks:
+Manually Unlock the State:
+Verify Backend Configuration: If using S3 + DynamoDB for state management, ensure DynamoDB locking is working.
+
+Your Terraform deployment created resources in AWS, but some are not being deleted when destroying the infrastructure. What went wrong?
+Check the Terraform State:
+Manually Remove Resources from State:
+Force Resource Deletion:
+
+You need to deploy infrastructure across multiple AWS accounts using Terraform. What’s the best approach?
+For multi-account deployments, use Terraform Workspaces or AWS provider aliasing.
+
+A junior engineer accidentally deleted the Terraform state file. How would you recover?
+recovery depends on the backend used.
+Solution:
+S3 Backend (Versioning Enabled):
+Check previous state file versions: aws s3 ls s3://your-terraform-state-bucket/
+Restore the latest version
+
+Your Terraform plan shows unexpected changes even when no code modifications were made. How would you troubleshoot?
+Check for Drift
+Manually verify changes in AWS Console.
+Check Terraform Provider Versions
+Check State File for Corruption
+
+The Terraform execution is slow due to too many dependent modules. How can you optimize it?
+Use -parallelism Flag
+Avoid deeply nested modules.
+Use remote state to avoid re-evaluating dependencies.
+Use terraform plan Before Apply
+
+Your Terraform code is failing intermittently due to API rate limits from a cloud provider. How would you handle this?
+Use retryable_errors in Provider Config
+Limit Parallel Requests
+Use depends_on to Reduce Unnecessary Calls
+
+You need to enforce strict security policies for infrastructure provisioning with Terraform. How would you achieve this?
+Use Sentinel or OPA (Open Policy Agent)
+Define policies like mandatory encryption:
+Use Terraform Modules for Standardization
+Example: Pre-configured IAM role modules.
+Enable AWS Config & Guardrails
+Enforce tagging and logging policies.
+
+Your Terraform deployment in a multi-cloud environment is facing latency issues. How would you optimize it?
+Use Local Execution for Each Cloud:
+Enable terraform plan in Parallel:
+Optimize Module Dependencies
+Reduce unnecessary cross-cloud dependencies
+
+A Terraform apply failed midway, leaving some resources partially created. How do you fix this while ensuring consistency?
+Identify Created Resources: terraform state list
+Manually Import Resources:
+Fix Issues & Re-run Apply:
+Destroy Incomplete Resources if Needed
+
+
+
+
+
+
+
+
+
+
+What are the disadvantages of using EBS volume as persistent storage in Kubernetes?
+Amazon EBS (Elastic Block Store) is a common persistent storage solution for Kubernetes, but it has drawbacks:
+Tightly Coupled to an AZ: EBS volumes are bound to a single Availability Zone (AZ), making it difficult to migrate across zones.
+Limited Scalability: Cannot be shared across multiple nodes; each volume is attached to a single node at a time.
+
+What are Persistent Volumes (PV) and PersistentVolume Claims (PVC)?
+Persistent Volume (PV)	A cluster-wide storage resource managed by Kubernetes, independent of a pod’s lifecycle.
+Persistent Volume Claim (PVC)	A request from a pod to use a PV. It specifies the needed storage size and access mode.
+
+What is the difference between StatefulSet and Deployment?
+Feature	StatefulSet	Deployment
+Use Case	Manages stateful applications (e.g., databases)	Manages stateless applications (e.g., web apps)
+Pod Identity	Each pod has a stable, unique name	Pods are interchangeable
+Storage	Uses Persistent Volumes (PV) for data persistence	Pods share storage but are not uniquely assigned
+Scaling	Ensures ordered scaling (pods start/stop sequentially)	Supports parallel scaling
+Example	Databases, Kafka, Elasticsearch	Web apps, APIs, microservices
+
+How can you achieve auto-scaling in Kubernetes?
+Horizontal Pod Autoscaler (HPA) – scales pods in/out based on CPU/memory usage.
+Vertical Pod Autoscaler (VPA) – adjusts pod resource requests up/down dynamically.
+
+How do you securely store credentials in Kubernetes?
+Kubernetes Secrets (Recommended)
+Store sensitive data securely using a Secret object:
+
+What is Role-Based Access Control (RBAC) in Kubernetes?
+RBAC controls who can access what resources (Just like IAM roles, groups like that)
+
+What is a Custom Resource Definition (CRD)?
+A CRD (Custom Resource Definition) allows users to define custom objects in Kubernetes.
+
+What are the main components of Helm? What is a Helm Chart, and what does it contain?
+Helm is a package manager for Kubernetes.
+Helm Chart = A collection of Kubernetes manifests/templates.
+Contains:
+Chart.yaml (metadata)
+values.yaml (configuration values)
+templates/ (Kubernetes manifests)
+
+What is a Chart.yaml file, and what is its purpose?
+Defines metadata for a Helm chart
+
+What is a values.yaml file, and how does it work?
+Stores default configuration for a Helm chart
+
+Basic Scenarios
+Your application running inside a Docker container is failing to start. How would you debug and fix the issue?
+Step 1: Check Logs
+Step 2: Check Container Status
+Step 3: Run in Interactive Mode
+Step 4: Inspect Dockerfile & Entrypoint
+Step 5: Check Network Issues
+
+A containerized application works on your local machine but fails when deployed on another server. How would you troubleshoot this?
+Step 1: Check Image Differences
+Step 2: Verify Environment Variables
+Step 3: Validate Dependencies
+Step 4: Debug Network Configuration
+Step 5: Check File Permissions
+
+You need to optimize the size of your Docker image. What strategies would you use?
+Reducing Docker image size improves performance and deploy time.
+Strategy 1: Use a Smaller Base Image
+Strategy 2: Use Multi-Stage Builds
+
+Your Docker container is running out of disk space. How would you analyze and resolve this issue
+Step 1: Check Disk Usage
+Step 2: Remove Unused Containers, Images, and Volumes
+Step 3: Reduce Container Log Size
+
+How would you ensure that environment variables in a Docker container remain secure and are not exposed in logs?
+Use Docker Secrets (Best Practice for Production)
+
+Networking & Communication
+Your containerized application cannot communicate with another container on the same network. How would you resolve this?
+Step 1: Verify Both Containers Are on the Same Network
+Check existing Docker networks: docker network ls
+Step 2: Use the Correct Hostname
+Step 3: Test Connectivity
+
+A Docker container needs to expose multiple ports for different services. How would you configure this properly?
+To expose multiple ports, update your Dockerfile:
+EXPOSE 8080 9090
+Then, start the container with:
+docker run -p 8080:8080 -p 9090:9090 my-image
+
+Your application running in a container needs to communicate with an external database server. How would you configure networking to allow this?
+If your application inside a container needs to connect to an external database, follow these steps:
+Step 1: Allow External Access to the Database
+Step 2: Configure Docker Networking
+
+A service running in Docker Compose cannot reach another service by hostname. What steps would you take to fix this?
+Step 1: Ensure Both Services Are on the Same Network
+Step 2: Use Service Names Instead of IPs
+Step 3: Test Connectivity from Inside the Container
+
+You need to run multiple versions of the same service on different ports inside Docker. How would you achieve this?
+Using Different Ports in docker run
+docker run -p 8080:80 my-app:v1
+docker run -p 9090:80 my-app:v2
+
+Volumes & Data Persistence
+You need to ensure that application data persists even after the container stops. How would you configure Docker for this?
+By default, when a Docker container stops, all data inside it is lost. To persist data, use Docker volumes.
+Docker manages volumes, ensuring data persists even if a container stops or is deleted.
+
+A containerized database is experiencing data corruption after restarts. How would you troubleshoot this?
+Step 1: Check for Unclean Shutdowns
+Corruption can occur if a database container crashes abruptly.
+Step 2: Use a Named Volume for Storage
+Step 3: Check File System Permissions
+Step 4: Backup & Restore Data
+
+Your application requires shared storage across multiple containers. How would you set this up?
+To share data between containers, use Docker volumes
+
+You need to mount a local directory inside a container at runtime. How would you do this?
+To use a specific local directory, use a bind mount:
+
+You want to prevent data loss in case a container crashes. What best practices would you follow?
+To avoid losing data:
+Always Use Persistent Storage
+
+diff between docker and persistence volume and use
+Use Docker Volume for local storage in standalone Docker environments.
+Use Kubernetes Persistent Volume (PV) for scalable, cluster-wide storage that persists across pod restarts.
+
+
+Scaling & Deployment
+Your Dockerized application needs to scale to handle high traffic. What approach would you take?
+To scale a Dockerized application, you have two main options:
+Option 1: Use Docker Swarm (Simpler)
+Deploy multiple replicas of your container.
+Option 2: Use Kubernetes (Recommended for Production)
+Create a Deployment with Horizontal Pod Autoscaler (HPA).
+
+You need to deploy multiple containers of an application while ensuring zero downtime. How would you achieve this?
+Rolling Updates (Kubernetes)
+Updates one container at a time to avoid downtime.
+In Kubernetes (deployment.yaml):
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 2
+	
+	
+You have a multi-container setup using Docker Compose and need to convert it to a Kubernetes deployment. What steps would you take?
+Use Kompose (Automated Method)
+kompose convert -f docker-compose.yml
+The above command generates Kubernetes YAML files for services, deployments, and volumes (deployment.yml, services.yml, persistencevolume.yml ).
+
+A containerized application in production is experiencing high CPU usage. How would you investigate and resolve this?
+Step 1: Check Container Resource Usage
+Step 2: Identify the Root Cause
+Step 3: Apply Resource Limits in Kubernetes
+Step 4: Use Horizontal Pod Autoscaler (HPA)
+
+Your CI/CD pipeline needs to build and push Docker images efficiently. What optimizations would you apply?
+Step 1: Use a Multi-Stage Build (Reduces Image Size)
+Dockerfile:
+# Build stage
+FROM node:18 AS builder
+WORKDIR /app
+COPY . .
+RUN npm install && npm run build
+# Production stage
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+Step 2: Cache Dependencies
+Step 3: Optimize Docker Layers
+Step 4: Use Docker BuildKit (Speeds Up Builds)
+Step 5: Push Images Efficiently to a Registry
+
+How to write a jenkins file for multi branch 
+Jenkins' Multibranch Pipeline plugin automatically scans and builds branches with a Jenkinsfile in them.
+        stage('Code Analysis') {
+            when {
+                branch 'develop'  // Run SonarQube only on develop branch
+            }
+            steps {
+                script {
+                    echo "Running SonarQube analysis..."
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        stage('Docker Build & Push') {
+            when {
+                branch 'main'  // Push Docker image only for the main branch
+            }
+            steps {
+                script {
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'  // Deploy only from the main branch
+            }
+            steps {
+                script {
+                }
+            }
+        }
+Explanation of the Jenkinsfile:
+agent any -> Runs on any available Jenkins agent.
+checkout scm -> Checks out the source code from the current branch.
+when { branch 'develop' } -> Runs SonarQube analysis only for develop.
+when { branch 'main' } -> Builds and pushes Docker images only on main.
+post section -> Logs pipeline status on success or failure.
+
+Setting Up a Multi-Branch Pipeline in Jenkins:
+Step 1: Install Necessary Plugins
+Ensure the following plugins are installed in Jenkins:
+Pipeline
+Multibranch Pipeline
+Git
+Docker Pipeline (if using Docker)
+SonarQube Scanner (if using SonarQube)
+Step 2: Create a Multi-Branch Pipeline Job
+Go to Jenkins Dashboard -> Click New Item
+Select "Multibranch Pipeline" -> Click OK
+Under "Branch Sources", select GitHub
+Enter the Repository URL
+Add Credentials (if required)
+Under "Scan Multibranch Pipeline Triggers", set it to 1 minute for automatic updates.
+Click Save
+
+How where do you store statefile and write script for backend dynamodb and S3?
+I have created 5 instance with terraform, manually deleted two resources. How many resources will terraform create once we apply terraform?
+We have created a terraform resources file to create 50 resources but due to some issues it failed to create all resources. What happens when we reapply? Will it create additional resources or will it recreate from the start?
+What is taint in terraform?
+How can you bring existing resources to manage with terraform?
+How do you run an application while recreating instance.
+How can you check the application status creating along with terraform?
+How do you secure jenkins?
+Write a shell script to find an error pattern in a file and send an email?
+Write a script to delete last 7 days old and more than 100 mb files.
+Write script to schedule a job to run backup file?
+Write a script to get back to save with time stamp?
+How do you trouble shoot applications running.
+What is image pull back in k8s?
+What is image pull back error and how do you trouble shoot in k8s
+How is the application high available in eks ?
+Where to you deploy the load balancer front end, back end?
+On which layer SSL/TLS certificates are attached.
+What is the architecture of the current project in eks ?
+How do you connect to private subnet instances?
+How do you configure an EC2 connect S3 bucket?
+What happens when you don't provide variables in terraform files? How will it take variables?
+How do you override existing environment variables in terraform?
+How do you deploy an application in EC2 Instance without jenkins.
+		 

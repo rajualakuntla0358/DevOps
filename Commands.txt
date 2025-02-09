@@ -1,0 +1,108 @@
+==========================================================================================
+Git:
+==========================================================================================
+git config --global user.name "Raju Alakuntla"
+git config --global user.email "RajuAlakuntla93@gmail.com"
+cat .gitconfig (You will see the user name and email)
+
+
+git branch new_branch
+
+
+git status
+git checkout branch1
+git merge branch2
+
+
+git log --oneline
+git revert CommitID
+
+
+
+==============================================================================================
+Docker:
+==============================================================================================
+docker build -t mynginx-image . OR docker build -t mynginx Dockerfile
+
+
+docker run -d -p 80:80 --name mynginx-container mynginx-image (-p (small p) you need to mention port number)
+docker run -d -P --name mynginx-container mynginx-image (-P (capital p) it will allocate port number)
+
+
+docker volume create my_data_volume
+docker run -d --name my_container -v my_data_volume:/app/data my_image
+
+
+==================================================================================================
+Kubernetes:
+==================================================================================================
+
+kubectl expose deployment deployment-backend --port=333 --target-port=4000 --name=service-backend
+
+
+kubectl scale deployment deployment_name --replicas=0
+kubectl scale deployment deployment_name --replicas=1
+
+
+kubectl rollout history deployment deployment_name -n namespace_name
+OR
+kubectl rollout history deployment deployment_name
+rollback to a specific version
+kubectl rollout undo deployment deployment_name -n namespace_name
+OR
+kubectl rollout undo deployment deployment_name --to-revision=1
+
+
+kubectl describe pod podname -n namespce_name
+
+
+kubectl exec -it container_name /bin/sh
+
+
+kubectl get pods -n namespace_name
+
+
+kubectl create namespace namespace_name
+
+
+kubectl create -f pod-setup.yml
+kubectl get pod
+kubectl describe pod webapp-pod
+kubectl get pod webapp-pod -o yaml
+kubectl get pod webapp-pod -o yaml > webpod-definition.yml
+kubectl edit pod webapp-pod
+
+
+kubectl get pods
+kubectl exec -it pod_name /bin/sh
+
+
+kubectl exec -it pod_name -c container_name /bin/sh
+
+
+kubectl create -f tom-svc-clusterip.yml
+kubectl get svc
+kubectl describe svc app-service
+
+
+kubectl create -f tom-app-deploy.yml
+kubectl get deploy
+kubectl get rs
+kubectl get pod
+kubectl describe deploy app-controller
+
+
+kubectl set image deployment/app-controller tomcat-container=tomcat:8.5-jdk11-adoptopenjdk-openj9
+
+
+kubectl get namespaces
+kubectl get all -n kube-system
+kubectl create namespace dev
+
+
+kops create cluster --name=route53 --state=s3://bucket_name --zones=zone1,zone2 --node-count=number_of_nodes --node-size=size_of_the_node --master-size=size_of_the_node --dns-zone=route53
+kops update cluster --name route53 --state=s3://bucket_name --yes --admin
+kops delete cluster --name route53 --state=s3://bucket_name --yes
+
+
+kompose convert -f docker-compose.yml

@@ -1,0 +1,284 @@
+FROM tomcat
+
+RUN rm -rf /usr/local/tomcat/webapps/*
+
+COPY artifact.war /usr/local/tomcat/webapps/ROOT.war
+
+CMD ["catalina.sh", "run"]
+
+EXPOSE 8080
+
+
+
+
+
+pod-setup.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-pod
+  labels:
+    apps: frontend
+    project: infinity
+spec:
+  containers:
+    - name: httpd-container
+      image: httpd
+      ports:
+        - name: http-port
+          containerPort: 80
+		  
+		  
+		  
+		  
+ClusterIP:
+tom-svc-clusterip.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  labels:
+    app: backend
+    project: infinity
+spec:
+  containers:
+    - name: tomcat-container
+      image: tomcat
+      ports:
+        - name: app-port
+          containerPort:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  type: ClusterIP
+  ports:
+  - targetPort: 8080
+    port: 8080
+    protocol: TCP
+  selector:
+    app: backend
+	
+	
+	
+	
+Deployment file:
+tom-app-deploy.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-controller
+spec:
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: tomcat-container
+        image: tomcat
+        ports:
+        - name: app-port
+          containerPort: 8080
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+	  
+	  
+	  
+	  
+
+Namespace:
+Pod:
+tom-app-deploy.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  namespace: dev
+  labels:
+    app: backend
+    project: infinity
+	
+	
+	
+	
+	
+HPA - Horizontal Pod Autoscaling:
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: deployment_name
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+  
+  
+  
+  
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Jenkinsfile
+---
+pipeline {
+
+    agent any
+/*
+	tools {
+        maven "maven3"
+		jdk
+    }
+*/
+    environment {
+        registry = "kubeimran/vproappdock" # Enter Your DockerHub username/repository name
+		registryCredential = 'dockerhub' # This from Jenkins-ManageJenkins - Credentials - System - Global Credentials - you will see dockerhub name, becasue we are already adding dockerhub credentials to the jenkins
+        
+    }
+
+    stages{
+
+        
+        stage('BUILD'){
+            steps {
+                sh 'mvn clean install -DskipTests'
+            }
+            post {
+                success {
+                    echo 'Now Archiving...'
+                    archiveArtifacts artifacts: '*/target/.war'
+                }
+            }
+        }
+
+        stage('UNIT TEST'){
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('INTEGRATION TEST'){
+            steps {
+                sh 'mvn verify -DskipUnitTests'
+            }
+        }
+
+        stage ('CODE ANALYSIS WITH CHECKSTYLE'){
+            steps {
+                sh 'mvn checkstyle:checkstyle'
+            }
+            post {
+                success {
+                    echo 'Generated Analysis Result'
+                }
+            }
+        }
+
+        stage('CODE ANALYSIS with SONARQUBE') {
+
+            environment {
+                scannerHome = tool 'mysonarscanner4'
+            }
+
+            steps {
+                withSonarQubeEnv('sonar-pro') {
+                    sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
+                   -Dsonar.projectName=vprofile-repo \
+                   -Dsonar.projectVersion=1.0 \
+                   -Dsonar.sources=src/ \
+                   -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
+                   -Dsonar.junit.reportsPath=target/surefire-reports/ \
+                   -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+                   -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+                }
+
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        stage('Build Docker App Images'){
+		  steps{
+		    script{
+			  dockerImage = docker.build registry + ":V$BUILD_ID"
+			}
+		  }
+		}
+		
+		stage('Upload Image'){
+		  steps{
+		    script{
+			  docker.withRegistry('', registryCredential){
+			    dockerImage.push("V$BUILD_ID")
+				dockerImage.push('latest')
+			  }
+			}
+		  }
+		}
+		
+		stage('Remove Unused Docker Images'){
+		  steps{
+		    sh "docker rmi $registry:V$BUILD_ID"
+		  }
+		}
+		
+		stage('Kubernetes Deploy'){
+		  agent{label 'KOPS'}
+		    steps{
+			  sh "helm upgrade --install --force vprofile-stack helm/vprofilecharts --set appimage=${registry}:V${BUILD_ID} --namespace prod"
+			}
+		}
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
